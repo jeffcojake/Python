@@ -55,3 +55,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Actual Budget source (cloned separately; changes tracked via actual-budget-goals-ui.patch)
+actual-budget/
