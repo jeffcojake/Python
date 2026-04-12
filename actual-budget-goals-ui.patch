@@ -1,4 +1,4 @@
-From 7247b755c3dbcf7829aa5da548b14bd276407a63 Mon Sep 17 00:00:00 2001
+From b4dba45993caf1a32524d208982000a19af3cd2e Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Fri, 10 Apr 2026 13:06:09 +0000
 Subject: [PATCH] [AI] feat: add Monthly Spending Target and Save by Date goal
@@ -51,7 +51,7 @@ https://claude.ai/code/session_01SjC2Rc6dyCyjHctk9969Z4
  create mode 100644 packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
 
 diff --git a/packages/desktop-client/src/components/Modals.tsx b/packages/desktop-client/src/components/Modals.tsx
-index e767a25..92df5c1 100644
+index b90af91..8861dad 100644
 --- a/packages/desktop-client/src/components/Modals.tsx
 +++ b/packages/desktop-client/src/components/Modals.tsx
 @@ -111,7 +111,12 @@ export function Modals() {
@@ -69,10 +69,10 @@ index e767a25..92df5c1 100644
  
          case 'category-automations-unmigrate':
 diff --git a/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx b/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
-index d54e774..e828e46 100644
+index 77f2521..c383e10 100644
 --- a/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
 +++ b/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
-@@ -17,8 +17,10 @@ import { setType } from './actions';
+@@ -18,8 +18,10 @@ import { setType } from './actions';
  import type { Action } from './actions';
  import { displayTemplateTypes } from './constants';
  import type { ReducerState } from './constants';
@@ -83,7 +83,7 @@ index d54e774..e828e46 100644
  import { PercentageAutomation } from './editor/PercentageAutomation';
  import { RefillAutomation } from './editor/RefillAutomation';
  import { ScheduleAutomation } from './editor/ScheduleAutomation';
-@@ -41,6 +43,21 @@ type BudgetAutomationEditorProps = {
+@@ -36,6 +38,21 @@ type BudgetAutomationEditorProps = {
  };
  
  const displayTypeToDescription = {
@@ -105,7 +105,7 @@ index d54e774..e828e46 100644
    limit: (
      <Trans>
        Set a cap for all budget contributions to this category across all
-@@ -100,6 +117,19 @@ export function BudgetAutomationEditor({
+@@ -95,6 +112,19 @@ export function BudgetAutomationEditor({
  
    let automationEditor: ReactNode;
    switch (state.displayType) {
@@ -159,7 +159,7 @@ index f5d46eb..99b33fc 100644
          <LimitAutomationReadOnly template={state.template} />
 diff --git a/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx b/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx
 new file mode 100644
-index 0000000..707979a
+index 0000000..fab5b3b
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx
 @@ -0,0 +1,58 @@
@@ -169,8 +169,8 @@ index 0000000..707979a
 +import { theme } from '@actual-app/components/theme';
 +import { View } from '@actual-app/components/view';
 +
-+import { useEnvelopeSheetValue } from '@desktop-client/components/budget/envelope/EnvelopeBudgetComponents';
-+import { envelopeBudget } from '@desktop-client/spreadsheet/bindings';
++import { useEnvelopeSheetValue } from '#components/budget/envelope/EnvelopeBudgetComponents';
++import { envelopeBudget } from '#spreadsheet/bindings';
 +
 +type GoalProgressBarProps = {
 +  categoryId: string;
@@ -222,7 +222,7 @@ index 0000000..707979a
 +  );
 +}
 diff --git a/packages/desktop-client/src/components/budget/goals/constants.ts b/packages/desktop-client/src/components/budget/goals/constants.ts
-index 2d59b11..00ac3c8 100644
+index f6c310b..7d07374 100644
 --- a/packages/desktop-client/src/components/budget/goals/constants.ts
 +++ b/packages/desktop-client/src/components/budget/goals/constants.ts
 @@ -1,6 +1,8 @@
@@ -235,7 +235,7 @@ index 2d59b11..00ac3c8 100644
    PercentageTemplate,
    PeriodicTemplate,
 @@ -9,6 +11,8 @@ import type {
- } from 'loot-core/types/models/templates';
+ } from '@actual-app/core/types/models/templates';
  
  export const displayTemplateTypes = [
 +  ['monthly-target', 'Monthly Spending Target'] as const,
@@ -260,7 +260,7 @@ index 2d59b11..00ac3c8 100644
        displayType: 'limit';
 diff --git a/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
 new file mode 100644
-index 0000000..520c3ce
+index 0000000..8a1d364
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
 @@ -0,0 +1,61 @@
@@ -269,12 +269,12 @@ index 0000000..520c3ce
 +import { Input } from '@actual-app/components/input';
 +import { SpaceBetween } from '@actual-app/components/space-between';
 +
-+import type { ByTemplate } from 'loot-core/types/models/templates';
++import type { ByTemplate } from '@actual-app/core/types/models/templates';
 +
-+import { updateTemplate } from '@desktop-client/components/budget/goals/actions';
-+import type { Action } from '@desktop-client/components/budget/goals/actions';
-+import { FormField, FormLabel } from '@desktop-client/components/forms';
-+import { AmountInput } from '@desktop-client/components/util/AmountInput';
++import { updateTemplate } from '#components/budget/goals/actions';
++import type { Action } from '#components/budget/goals/actions';
++import { FormField, FormLabel } from '#components/forms';
++import { AmountInput } from '#components/util/AmountInput';
 +
 +type ByDateAutomationProps = {
 +  template: ByTemplate;
@@ -327,7 +327,7 @@ index 0000000..520c3ce
 +};
 diff --git a/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx
 new file mode 100644
-index 0000000..f3ae34c
+index 0000000..ad4936e
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx
 @@ -0,0 +1,51 @@
@@ -337,12 +337,12 @@ index 0000000..f3ae34c
 +  currentMonth,
 +  differenceInCalendarMonths,
 +  format as formatMonth,
-+} from 'loot-core/shared/months';
-+import type { ByTemplate } from 'loot-core/types/models/templates';
-+import type { TransObjectLiteral } from 'loot-core/types/util';
++} from '@actual-app/core/shared/months';
++import type { ByTemplate } from '@actual-app/core/types/models/templates';
++import type { TransObjectLiteral } from '@actual-app/core/types/util';
 +
-+import { FinancialText } from '@desktop-client/components/FinancialText';
-+import { useFormat } from '@desktop-client/hooks/useFormat';
++import { FinancialText } from '#components/FinancialText';
++import { useFormat } from '#hooks/useFormat';
 +
 +type ByDateAutomationReadOnlyProps = {
 +  template: ByTemplate;
@@ -384,18 +384,18 @@ index 0000000..f3ae34c
 +};
 diff --git a/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx
 new file mode 100644
-index 0000000..a05fd9b
+index 0000000..cf25422
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx
 @@ -0,0 +1,43 @@
 +import { useTranslation } from 'react-i18next';
 +
-+import type { GoalTemplate } from 'loot-core/types/models/templates';
++import type { GoalTemplate } from '@actual-app/core/types/models/templates';
 +
-+import { updateTemplate } from '@desktop-client/components/budget/goals/actions';
-+import type { Action } from '@desktop-client/components/budget/goals/actions';
-+import { FormField, FormLabel } from '@desktop-client/components/forms';
-+import { AmountInput } from '@desktop-client/components/util/AmountInput';
++import { updateTemplate } from '#components/budget/goals/actions';
++import type { Action } from '#components/budget/goals/actions';
++import { FormField, FormLabel } from '#components/forms';
++import { AmountInput } from '#components/util/AmountInput';
 +
 +type MonthlyTargetAutomationProps = {
 +  template: GoalTemplate;
@@ -433,17 +433,17 @@ index 0000000..a05fd9b
 +};
 diff --git a/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
 new file mode 100644
-index 0000000..a5bd0b4
+index 0000000..60290f5
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
 @@ -0,0 +1,30 @@
 +import { Trans } from 'react-i18next';
 +
-+import type { GoalTemplate } from 'loot-core/types/models/templates';
-+import type { TransObjectLiteral } from 'loot-core/types/util';
++import type { GoalTemplate } from '@actual-app/core/types/models/templates';
++import type { TransObjectLiteral } from '@actual-app/core/types/util';
 +
-+import { FinancialText } from '@desktop-client/components/FinancialText';
-+import { useFormat } from '@desktop-client/hooks/useFormat';
++import { FinancialText } from '#components/FinancialText';
++import { useFormat } from '#hooks/useFormat';
 +
 +type MonthlyTargetAutomationReadOnlyProps = {
 +  template: GoalTemplate;
@@ -468,17 +468,17 @@ index 0000000..a5bd0b4
 +  );
 +};
 diff --git a/packages/desktop-client/src/components/budget/goals/reducer.ts b/packages/desktop-client/src/components/budget/goals/reducer.ts
-index 5ce50ef..97614f4 100644
+index 986ceba..2fae3c0 100644
 --- a/packages/desktop-client/src/components/budget/goals/reducer.ts
 +++ b/packages/desktop-client/src/components/budget/goals/reducer.ts
 @@ -1,4 +1,8 @@
--import { firstDayOfMonth } from 'loot-core/shared/months';
+-import { firstDayOfMonth } from '@actual-app/core/shared/months';
 +import {
 +  addMonths,
 +  currentMonth,
 +  firstDayOfMonth,
-+} from 'loot-core/shared/months';
- import type { Template } from 'loot-core/types/models/templates';
++} from '@actual-app/core/shared/months';
+ import type { Template } from '@actual-app/core/types/models/templates';
  
  import type { Action } from './actions';
 @@ -43,8 +47,12 @@ export const getInitialState = (template: Template | null): ReducerState => {
@@ -541,18 +541,18 @@ index 5ce50ef..97614f4 100644
        if (prevState.template.type === 'limit') {
          return prevState;
 diff --git a/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx b/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
-index fed14a7..a28de00 100644
+index 3b5dac2..9a72568 100644
 --- a/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
 +++ b/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
-@@ -21,6 +21,7 @@ import type { Template } from 'loot-core/types/models/templates';
- import { Warning } from '@desktop-client/components/alerts';
- import { BudgetAutomation } from '@desktop-client/components/budget/goals/BudgetAutomation';
- import type { DisplayTemplateType } from '@desktop-client/components/budget/goals/constants';
-+import { GoalProgressBar } from '@desktop-client/components/budget/goals/GoalProgressBar';
- import { DEFAULT_PRIORITY } from '@desktop-client/components/budget/goals/reducer';
- import { useBudgetAutomationCategories } from '@desktop-client/components/budget/goals/useBudgetAutomationCategories';
- import { Link } from '@desktop-client/components/common/Link';
-@@ -44,6 +45,10 @@ type AutomationEntry = {
+@@ -20,6 +20,7 @@ import uniqueId from 'lodash/uniqueId';
+ import { Warning } from '#components/alerts';
+ import { BudgetAutomation } from '#components/budget/goals/BudgetAutomation';
+ import type { DisplayTemplateType } from '#components/budget/goals/constants';
++import { GoalProgressBar } from '#components/budget/goals/GoalProgressBar';
+ import { DEFAULT_PRIORITY } from '#components/budget/goals/reducer';
+ import { useBudgetAutomationCategories } from '#components/budget/goals/useBudgetAutomationCategories';
+ import { Link } from '#components/common/Link';
+@@ -39,6 +40,10 @@ type AutomationEntry = {
  
  function getDisplayTypeFromTemplate(template: Template): DisplayTemplateType {
    switch (template.type) {
@@ -563,7 +563,7 @@ index fed14a7..a28de00 100644
      case 'percentage':
        return 'percentage';
      case 'schedule':
-@@ -408,6 +413,13 @@ export function BudgetAutomationsModal({ categoryId }: { categoryId: string }) {
+@@ -403,6 +408,13 @@ export function BudgetAutomationsModal({ categoryId }: { categoryId: string }) {
                    style={{ flexShrink: 0 }}
                  />
                )}
