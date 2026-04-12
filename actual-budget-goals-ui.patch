@@ -1,0 +1,526 @@
+diff --git a/packages/desktop-client/src/components/Modals.tsx b/packages/desktop-client/src/components/Modals.tsx
+index b90af91..8861dad 100644
+--- a/packages/desktop-client/src/components/Modals.tsx
++++ b/packages/desktop-client/src/components/Modals.tsx
+@@ -111,7 +111,12 @@ export function Modals() {
+ 
+         case 'category-automations-edit':
+           return budgetId ? (
+-            <BudgetAutomationsModal key={name} {...modal.options} />
++            <SheetNameProvider
++              key={name}
++              name={monthUtils.sheetForMonth(monthUtils.currentMonth())}
++            >
++              <BudgetAutomationsModal {...modal.options} />
++            </SheetNameProvider>
+           ) : null;
+ 
+         case 'category-automations-unmigrate':
+diff --git a/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx b/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
+index 77f2521..c383e10 100644
+--- a/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
++++ b/packages/desktop-client/src/components/budget/goals/BudgetAutomationEditor.tsx
+@@ -18,8 +18,10 @@ import { setType } from './actions';
+ import type { Action } from './actions';
+ import { displayTemplateTypes } from './constants';
+ import type { ReducerState } from './constants';
++import { ByDateAutomation } from './editor/ByDateAutomation';
+ import { HistoricalAutomation } from './editor/HistoricalAutomation';
+ import { LimitAutomation } from './editor/LimitAutomation';
++import { MonthlyTargetAutomation } from './editor/MonthlyTargetAutomation';
+ import { PercentageAutomation } from './editor/PercentageAutomation';
+ import { RefillAutomation } from './editor/RefillAutomation';
+ import { ScheduleAutomation } from './editor/ScheduleAutomation';
+@@ -36,6 +38,21 @@ type BudgetAutomationEditorProps = {
+ };
+ 
+ const displayTypeToDescription = {
++  'monthly-target': (
++    <Trans>
++      Set a monthly spending target for this category. Actual will show your
++      progress toward the goal so you can see at a glance whether you have
++      funded it fully. This goal does not auto-budget — you still decide how
++      much to allocate each month.
++    </Trans>
++  ),
++  'by-date': (
++    <Trans>
++      Save a specific amount by a target month. Actual will automatically
++      calculate how much you need to budget each month to reach your goal on
++      time.
++    </Trans>
++  ),
+   limit: (
+     <Trans>
+       Set a cap for all budget contributions to this category across all
+@@ -95,6 +112,19 @@ export function BudgetAutomationEditor({
+ 
+   let automationEditor: ReactNode;
+   switch (state.displayType) {
++    case 'monthly-target':
++      automationEditor = (
++        <MonthlyTargetAutomation
++          template={state.template}
++          dispatch={dispatch}
++        />
++      );
++      break;
++    case 'by-date':
++      automationEditor = (
++        <ByDateAutomation template={state.template} dispatch={dispatch} />
++      );
++      break;
+     case 'limit':
+       automationEditor = (
+         <LimitAutomation template={state.template} dispatch={dispatch} />
+diff --git a/packages/desktop-client/src/components/budget/goals/BudgetAutomationReadOnly.tsx b/packages/desktop-client/src/components/budget/goals/BudgetAutomationReadOnly.tsx
+index f5d46eb..99b33fc 100644
+--- a/packages/desktop-client/src/components/budget/goals/BudgetAutomationReadOnly.tsx
++++ b/packages/desktop-client/src/components/budget/goals/BudgetAutomationReadOnly.tsx
+@@ -14,8 +14,10 @@ import { theme } from '@actual-app/components/theme';
+ import { View } from '@actual-app/components/view';
+ 
+ import type { ReducerState } from './constants';
++import { ByDateAutomationReadOnly } from './editor/ByDateAutomationReadOnly';
+ import { HistoricalAutomationReadOnly } from './editor/HistoricalAutomationReadOnly';
+ import { LimitAutomationReadOnly } from './editor/LimitAutomationReadOnly';
++import { MonthlyTargetAutomationReadOnly } from './editor/MonthlyTargetAutomationReadOnly';
+ import { PercentageAutomationReadOnly } from './editor/PercentageAutomationReadOnly';
+ import { RefillAutomationReadOnly } from './editor/RefillAutomationReadOnly';
+ import { ScheduleAutomationReadOnly } from './editor/ScheduleAutomationReadOnly';
+@@ -44,6 +46,16 @@ export function BudgetAutomationReadOnly({
+ 
+   let automationReadOnly;
+   switch (state.displayType) {
++    case 'monthly-target':
++      automationReadOnly = (
++        <MonthlyTargetAutomationReadOnly template={state.template} />
++      );
++      break;
++    case 'by-date':
++      automationReadOnly = (
++        <ByDateAutomationReadOnly template={state.template} />
++      );
++      break;
+     case 'limit':
+       automationReadOnly = (
+         <LimitAutomationReadOnly template={state.template} />
+diff --git a/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx b/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx
+new file mode 100644
+index 0000000..fab5b3b
+--- /dev/null
++++ b/packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx
+@@ -0,0 +1,58 @@
++import { Trans } from 'react-i18next';
++
++import { Text } from '@actual-app/components/text';
++import { theme } from '@actual-app/components/theme';
++import { View } from '@actual-app/components/view';
++
++import { useEnvelopeSheetValue } from '#components/budget/envelope/EnvelopeBudgetComponents';
++import { envelopeBudget } from '#spreadsheet/bindings';
++
++type GoalProgressBarProps = {
++  categoryId: string;
++};
++
++export function GoalProgressBar({ categoryId }: GoalProgressBarProps) {
++  const budgeted =
++    useEnvelopeSheetValue(envelopeBudget.catBudgeted(categoryId)) ?? 0;
++  const goal = useEnvelopeSheetValue(envelopeBudget.catGoal(categoryId)) ?? 0;
++
++  if (!goal || goal === 0) {
++    return null;
++  }
++
++  const pct = Math.min(budgeted / goal, 1);
++  const fillColor =
++    pct >= 1
++      ? theme.noticeText
++      : pct >= 0.5
++        ? theme.warningText
++        : theme.errorText;
++
++  return (
++    <View style={{ gap: 4 }}>
++      <View
++        style={{
++          height: 6,
++          borderRadius: 3,
++          backgroundColor: theme.tableBorder,
++          overflow: 'hidden',
++        }}
++      >
++        <View
++          style={{
++            width: `${Math.round(pct * 100)}%`,
++            height: '100%',
++            backgroundColor: fillColor,
++            borderRadius: 3,
++            transition: 'width 0.2s ease',
++          }}
++        />
++      </View>
++      <Text style={{ fontSize: 11, color: theme.tableTextLight }}>
++        <Trans>
++          {{ pct: Math.round(pct * 100) }}% of monthly target funded
++        </Trans>
++      </Text>
++    </View>
++  );
++}
+diff --git a/packages/desktop-client/src/components/budget/goals/constants.ts b/packages/desktop-client/src/components/budget/goals/constants.ts
+index f6c310b..7d07374 100644
+--- a/packages/desktop-client/src/components/budget/goals/constants.ts
++++ b/packages/desktop-client/src/components/budget/goals/constants.ts
+@@ -1,6 +1,8 @@
+ import type {
+   AverageTemplate,
++  ByTemplate,
+   CopyTemplate,
++  GoalTemplate,
+   LimitTemplate,
+   PercentageTemplate,
+   PeriodicTemplate,
+@@ -9,6 +11,8 @@ import type {
+ } from '@actual-app/core/types/models/templates';
+ 
+ export const displayTemplateTypes = [
++  ['monthly-target', 'Monthly Spending Target'] as const,
++  ['by-date', 'Save by Date'] as const,
+   ['limit', 'Balance limit'] as const,
+   ['refill', 'Refill'] as const,
+   ['week', 'Fixed (weekly)'] as const,
+@@ -20,6 +24,14 @@ export const displayTemplateTypes = [
+ export type DisplayTemplateType = (typeof displayTemplateTypes)[number][0];
+ 
+ export type ReducerState =
++  | {
++      template: GoalTemplate;
++      displayType: 'monthly-target';
++    }
++  | {
++      template: ByTemplate;
++      displayType: 'by-date';
++    }
+   | {
+       template: LimitTemplate;
+       displayType: 'limit';
+diff --git a/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
+new file mode 100644
+index 0000000..c3df749
+--- /dev/null
++++ b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
+@@ -0,0 +1,60 @@
++import { useTranslation } from 'react-i18next';
++
++import { Input } from '@actual-app/components/input';
++import { SpaceBetween } from '@actual-app/components/space-between';
++import type { ByTemplate } from '@actual-app/core/types/models/templates';
++
++import { updateTemplate } from '#components/budget/goals/actions';
++import type { Action } from '#components/budget/goals/actions';
++import { FormField, FormLabel } from '#components/forms';
++import { AmountInput } from '#components/util/AmountInput';
++
++type ByDateAutomationProps = {
++  template: ByTemplate;
++  dispatch: (action: Action) => void;
++};
++
++export const ByDateAutomation = ({
++  template,
++  dispatch,
++}: ByDateAutomationProps) => {
++  const { t } = useTranslation();
++
++  return (
++    <SpaceBetween gap={20} style={{ marginTop: 10 }}>
++      <FormField style={{ flex: 1 }}>
++        <FormLabel title={t('Target amount')} htmlFor="by-date-amount-field" />
++        <AmountInput
++          id="by-date-amount-field"
++          key="by-date-amount-input"
++          value={template.amount ?? 0}
++          zeroSign="+"
++          onUpdate={(value: number) =>
++            dispatch(
++              updateTemplate({
++                type: 'by',
++                amount: value,
++              }),
++            )
++          }
++        />
++      </FormField>
++      <FormField style={{ flex: 1 }}>
++        <FormLabel title={t('Save by')} htmlFor="by-date-month-field" />
++        <Input
++          id="by-date-month-field"
++          type="month"
++          value={template.month ?? ''}
++          onChange={e =>
++            dispatch(
++              updateTemplate({
++                type: 'by',
++                month: e.target.value,
++              }),
++            )
++          }
++        />
++      </FormField>
++    </SpaceBetween>
++  );
++};
+diff --git a/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx
+new file mode 100644
+index 0000000..ad4936e
+--- /dev/null
++++ b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx
+@@ -0,0 +1,51 @@
++import { Trans } from 'react-i18next';
++
++import {
++  currentMonth,
++  differenceInCalendarMonths,
++  format as formatMonth,
++} from '@actual-app/core/shared/months';
++import type { ByTemplate } from '@actual-app/core/types/models/templates';
++import type { TransObjectLiteral } from '@actual-app/core/types/util';
++
++import { FinancialText } from '#components/FinancialText';
++import { useFormat } from '#hooks/useFormat';
++
++type ByDateAutomationReadOnlyProps = {
++  template: ByTemplate;
++};
++
++export const ByDateAutomationReadOnly = ({
++  template,
++}: ByDateAutomationReadOnlyProps) => {
++  const format = useFormat();
++
++  const monthsLeft = Math.max(
++    1,
++    differenceInCalendarMonths(template.month, currentMonth()),
++  );
++  const monthlyAmount = Math.ceil(template.amount / monthsLeft);
++  const targetMonth = formatMonth(template.month, 'MMMM yyyy');
++
++  return (
++    <Trans>
++      Save{' '}
++      <FinancialText>
++        {
++          {
++            amount: format(template.amount, 'financial'),
++          } as TransObjectLiteral
++        }
++      </FinancialText>{' '}
++      by {{ targetMonth }} (
++      <FinancialText>
++        {
++          {
++            monthly: format(monthlyAmount, 'financial'),
++          } as TransObjectLiteral
++        }
++      </FinancialText>
++      /mo)
++    </Trans>
++  );
++};
+diff --git a/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx
+new file mode 100644
+index 0000000..cf25422
+--- /dev/null
++++ b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx
+@@ -0,0 +1,43 @@
++import { useTranslation } from 'react-i18next';
++
++import type { GoalTemplate } from '@actual-app/core/types/models/templates';
++
++import { updateTemplate } from '#components/budget/goals/actions';
++import type { Action } from '#components/budget/goals/actions';
++import { FormField, FormLabel } from '#components/forms';
++import { AmountInput } from '#components/util/AmountInput';
++
++type MonthlyTargetAutomationProps = {
++  template: GoalTemplate;
++  dispatch: (action: Action) => void;
++};
++
++export const MonthlyTargetAutomation = ({
++  template,
++  dispatch,
++}: MonthlyTargetAutomationProps) => {
++  const { t } = useTranslation();
++
++  return (
++    <FormField style={{ flex: 1 }}>
++      <FormLabel
++        title={t('Monthly target amount')}
++        htmlFor="monthly-target-field"
++      />
++      <AmountInput
++        id="monthly-target-field"
++        key="monthly-target-input"
++        value={template.amount ?? 0}
++        zeroSign="+"
++        onUpdate={(value: number) =>
++          dispatch(
++            updateTemplate({
++              type: 'goal',
++              amount: value,
++            }),
++          )
++        }
++      />
++    </FormField>
++  );
++};
+diff --git a/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
+new file mode 100644
+index 0000000..60290f5
+--- /dev/null
++++ b/packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
+@@ -0,0 +1,30 @@
++import { Trans } from 'react-i18next';
++
++import type { GoalTemplate } from '@actual-app/core/types/models/templates';
++import type { TransObjectLiteral } from '@actual-app/core/types/util';
++
++import { FinancialText } from '#components/FinancialText';
++import { useFormat } from '#hooks/useFormat';
++
++type MonthlyTargetAutomationReadOnlyProps = {
++  template: GoalTemplate;
++};
++
++export const MonthlyTargetAutomationReadOnly = ({
++  template,
++}: MonthlyTargetAutomationReadOnlyProps) => {
++  const format = useFormat();
++
++  return (
++    <Trans>
++      Monthly spending target:{' '}
++      <FinancialText>
++        {
++          {
++            amount: format(template.amount, 'financial'),
++          } as TransObjectLiteral
++        }
++      </FinancialText>
++    </Trans>
++  );
++};
+diff --git a/packages/desktop-client/src/components/budget/goals/reducer.ts b/packages/desktop-client/src/components/budget/goals/reducer.ts
+index 986ceba..2fae3c0 100644
+--- a/packages/desktop-client/src/components/budget/goals/reducer.ts
++++ b/packages/desktop-client/src/components/budget/goals/reducer.ts
+@@ -1,4 +1,8 @@
+-import { firstDayOfMonth } from '@actual-app/core/shared/months';
++import {
++  addMonths,
++  currentMonth,
++  firstDayOfMonth,
++} from '@actual-app/core/shared/months';
+ import type { Template } from '@actual-app/core/types/models/templates';
+ 
+ import type { Action } from './actions';
+@@ -43,8 +47,12 @@ export const getInitialState = (template: Template | null): ReducerState => {
+         displayType: 'week',
+       };
+     case 'spend':
++      throw new Error('Spend template is not yet supported');
+     case 'by':
+-      throw new Error('Goal is not yet supported');
++      return {
++        template,
++        displayType: 'by-date',
++      };
+     case 'remainder':
+       throw new Error('Remainder is not yet supported');
+     case 'limit':
+@@ -64,7 +72,10 @@ export const getInitialState = (template: Template | null): ReducerState => {
+         displayType: 'historical',
+       };
+     case 'goal':
+-      throw new Error('Goal is not yet supported');
++      return {
++        template,
++        displayType: 'monthly-target',
++      };
+     case 'error':
+       throw new Error('An error occurred while parsing the template');
+     default:
+@@ -79,6 +90,32 @@ const changeType = (
+   visualType: DisplayTemplateType,
+ ): ReducerState => {
+   switch (visualType) {
++    case 'monthly-target':
++      if (prevState.template.type === 'goal') {
++        return prevState;
++      }
++      return {
++        displayType: visualType,
++        template: {
++          directive: 'goal',
++          type: 'goal',
++          amount: 0,
++        },
++      };
++    case 'by-date':
++      if (prevState.template.type === 'by') {
++        return prevState;
++      }
++      return {
++        displayType: visualType,
++        template: {
++          directive: 'template',
++          type: 'by',
++          amount: 0,
++          month: addMonths(currentMonth(), 3),
++          priority: DEFAULT_PRIORITY,
++        },
++      };
+     case 'limit':
+       if (prevState.template.type === 'limit') {
+         return prevState;
+diff --git a/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx b/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
+index 3b5dac2..9a72568 100644
+--- a/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
++++ b/packages/desktop-client/src/components/modals/BudgetAutomationsModal.tsx
+@@ -20,6 +20,7 @@ import uniqueId from 'lodash/uniqueId';
+ import { Warning } from '#components/alerts';
+ import { BudgetAutomation } from '#components/budget/goals/BudgetAutomation';
+ import type { DisplayTemplateType } from '#components/budget/goals/constants';
++import { GoalProgressBar } from '#components/budget/goals/GoalProgressBar';
+ import { DEFAULT_PRIORITY } from '#components/budget/goals/reducer';
+ import { useBudgetAutomationCategories } from '#components/budget/goals/useBudgetAutomationCategories';
+ import { Link } from '#components/common/Link';
+@@ -39,6 +40,10 @@ type AutomationEntry = {
+ 
+ function getDisplayTypeFromTemplate(template: Template): DisplayTemplateType {
+   switch (template.type) {
++    case 'goal':
++      return 'monthly-target';
++    case 'by':
++      return 'by-date';
+     case 'percentage':
+       return 'percentage';
+     case 'schedule':
+@@ -403,6 +408,13 @@ export function BudgetAutomationsModal({ categoryId }: { categoryId: string }) {
+                   style={{ flexShrink: 0 }}
+                 />
+               )}
++              {(automations[categoryId] ?? []).some(
++                a => a.displayType === 'monthly-target',
++              ) && (
++                <View style={{ paddingTop: 8, paddingBottom: 4 }}>
++                  <GoalProgressBar categoryId={categoryId} />
++                </View>
++              )}
+               <BudgetAutomationList
+                 automations={automations[categoryId] || []}
+                 setAutomations={(
