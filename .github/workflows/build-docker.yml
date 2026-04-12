@@ -26,12 +26,12 @@ jobs:
         with:
           path: python-repo
 
-      - name: Checkout actualbudget/actual at known-good base commit
-        uses: actions/checkout@v4
-        with:
-          repository: actualbudget/actual
-          ref: 0025010382586f9936a2b1bfd9a0419f651a8b68
-          path: actual-budget
+      - name: Clone actualbudget/actual at known-good base commit
+        run: |
+          git clone --depth=1 https://github.com/actualbudget/actual.git actual-budget
+          cd actual-budget
+          git fetch --depth=1 origin 0025010382586f9936a2b1bfd9a0419f651a8b68
+          git checkout 0025010382586f9936a2b1bfd9a0419f651a8b68
 
       - name: Apply custom patch
         run: |
