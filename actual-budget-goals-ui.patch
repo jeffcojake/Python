@@ -1,55 +1,3 @@
-From b4dba45993caf1a32524d208982000a19af3cd2e Mon Sep 17 00:00:00 2001
-From: Claude <noreply@anthropic.com>
-Date: Fri, 10 Apr 2026 13:06:09 +0000
-Subject: [PATCH] [AI] feat: add Monthly Spending Target and Save by Date goal
- types with progress bar
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Surfaces two previously unused template types (GoalTemplate, ByTemplate)
-through a user-friendly UI, and adds a visual progress bar in the
-automations modal for monthly spending targets.
-
-Changes:
-- Add 'monthly-target' (GoalTemplate) and 'by-date' (ByTemplate) to the
-  displayTemplateTypes in constants.ts with plain-English labels
-- Update reducer to handle 'goal' and 'by' template types instead of
-  throwing, and add changeType cases for the two new display types
-- Create MonthlyTargetAutomation/ReadOnly editor components (simple amount
-  input; read-only shows "Monthly spending target: $X")
-- Create ByDateAutomation/ReadOnly editor components (amount + month picker;
-  read-only shows "Save $X by [month] ($Y/mo)")
-- Create GoalProgressBar component that reads catBudgeted/catGoal from the
-  envelope spreadsheet and renders a colour-coded bar (green ≥ 100%,
-  yellow ≥ 50%, red < 50%)
-- Integrate GoalProgressBar into BudgetAutomationsModal, shown when a
-  monthly-target goal exists for the category
-- Wrap the category-automations-edit modal in SheetNameProvider (current
-  month) so spreadsheet bindings resolve correctly inside the modal
-- Fix getDisplayTypeFromTemplate to correctly map 'goal' → 'monthly-target'
-  and 'by' → 'by-date' instead of falling through to 'week'
-
-https://claude.ai/code/session_01SjC2Rc6dyCyjHctk9969Z4
----
- .../desktop-client/src/components/Modals.tsx  |  7 ++-
- .../budget/goals/BudgetAutomationEditor.tsx   | 30 +++++++++
- .../budget/goals/BudgetAutomationReadOnly.tsx | 12 ++++
- .../budget/goals/GoalProgressBar.tsx          | 58 ++++++++++++++++++
- .../src/components/budget/goals/constants.ts  | 12 ++++
- .../budget/goals/editor/ByDateAutomation.tsx  | 61 +++++++++++++++++++
- .../goals/editor/ByDateAutomationReadOnly.tsx | 51 ++++++++++++++++
- .../goals/editor/MonthlyTargetAutomation.tsx  | 43 +++++++++++++
- .../MonthlyTargetAutomationReadOnly.tsx       | 30 +++++++++
- .../src/components/budget/goals/reducer.ts    | 43 ++++++++++++-
- .../modals/BudgetAutomationsModal.tsx         | 12 ++++
- 11 files changed, 355 insertions(+), 4 deletions(-)
- create mode 100644 packages/desktop-client/src/components/budget/goals/GoalProgressBar.tsx
- create mode 100644 packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
- create mode 100644 packages/desktop-client/src/components/budget/goals/editor/ByDateAutomationReadOnly.tsx
- create mode 100644 packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomation.tsx
- create mode 100644 packages/desktop-client/src/components/budget/goals/editor/MonthlyTargetAutomationReadOnly.tsx
-
 diff --git a/packages/desktop-client/src/components/Modals.tsx b/packages/desktop-client/src/components/Modals.tsx
 index b90af91..8861dad 100644
 --- a/packages/desktop-client/src/components/Modals.tsx
@@ -260,15 +208,14 @@ index f6c310b..7d07374 100644
        displayType: 'limit';
 diff --git a/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
 new file mode 100644
-index 0000000..8a1d364
+index 0000000..c3df749
 --- /dev/null
 +++ b/packages/desktop-client/src/components/budget/goals/editor/ByDateAutomation.tsx
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,60 @@
 +import { useTranslation } from 'react-i18next';
 +
 +import { Input } from '@actual-app/components/input';
 +import { SpaceBetween } from '@actual-app/components/space-between';
-+
 +import type { ByTemplate } from '@actual-app/core/types/models/templates';
 +
 +import { updateTemplate } from '#components/budget/goals/actions';
@@ -577,6 +524,3 @@ index 3b5dac2..9a72568 100644
                <BudgetAutomationList
                  automations={automations[categoryId] || []}
                  setAutomations={(
--- 
-2.43.0
-

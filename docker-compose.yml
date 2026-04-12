@@ -1,9 +1,6 @@
 services:
   actual-budget:
-    build:
-      context: ./actual-budget
-      dockerfile: sync-server.Dockerfile
-    image: actual-budget-custom:v1.0
+    image: ghcr.io/jeffcojake/actual-budget-custom:v1.0
     container_name: actual-budget
     restart: unless-stopped
     ports:
