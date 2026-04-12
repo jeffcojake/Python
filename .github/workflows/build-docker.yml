@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: actualbudget/actual
-          ref: 0025010
+          ref: 0025010382586f9936a2b1bfd9a0419f651a8b68
           path: actual-budget
 
       - name: Apply custom patch
